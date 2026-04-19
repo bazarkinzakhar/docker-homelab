@@ -11,6 +11,16 @@ volumes:
   grafana_data:
 
 services:
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy
+    container_name: docker-proxy
+    privileged: false
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - CONTAINERS=1
+    networks:
+      - socket-net
   traefik:
     image: traefik:${TRAEFIK_VERSION}
     container_name: traefik
@@ -20,6 +30,8 @@ services:
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
+      - "--providers.docker.endpoint=tcp://docker-proxy:2375"
+      - "--providers.docker.exposedbydefault=false"
     ports:
       - "80:80"
       - "8080:8080"
@@ -27,6 +39,8 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - proxy
+      - socket-net
+      - web
     logging:
       driver: "json-file"
       options:

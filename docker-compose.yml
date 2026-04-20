@@ -31,7 +31,10 @@ services:
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
       - "--providers.docker.endpoint=tcp://docker-proxy:2375"
+<<<<<<< HEAD
       - "--providers.docker.exposedbydefault=false"
+=======
+>>>>>>> dc7ce9d (add docker-proxy)
     ports:
       - "80:80"
       - "8080:8080"

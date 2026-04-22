@@ -5,10 +5,20 @@ networks:
     internal: true
   monitoring:
     internal: true
+  socket-net:
+    internal: true
+  web:
+    internal: true
 
 volumes:
   postgres_data:
   grafana_data:
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
 
 services:
   docker-proxy:
@@ -21,6 +31,8 @@ services:
       - CONTAINERS=1
     networks:
       - socket-net
+    logging: *default-logging
+
   traefik:
     image: traefik:${TRAEFIK_VERSION}
     container_name: traefik
@@ -31,24 +43,16 @@ services:
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
       - "--providers.docker.endpoint=tcp://docker-proxy:2375"
-<<<<<<< HEAD
-      - "--providers.docker.exposedbydefault=false"
-=======
->>>>>>> dc7ce9d (add docker-proxy)
     ports:
       - "80:80"
       - "8080:8080"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - proxy
       - socket-net
       - web
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+    depends_on:
+      - docker-proxy
+    logging: *default-logging
 
   nginx:
     image: nginx:1.25.3-alpine
@@ -69,18 +73,16 @@ services:
         limits:
           cpus: '0.25'
           memory: 128M
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *default-logging
 
   web-api:
-    build: ./web
+    build:
+      context: ./web
     container_name: python_backend
     restart: unless-stopped
     networks:
       - proxy
+      - backend
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.api.rule=PathPrefix(`/api`)"
@@ -93,11 +95,10 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+    depends_on:
+      db:
+        condition: service_healthy
+    logging: *default-logging
 
   db:
     image: postgres:16.2-alpine
@@ -112,7 +113,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -121,11 +122,7 @@ services:
         limits:
           cpus: '0.50'
           memory: 512M
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *default-logging
 
   node-exporter:
     image: prom/node-exporter:v1.7.0
@@ -146,11 +143,7 @@ services:
         limits:
           cpus: '0.1'
           memory: 64M
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *default-logging
 
   prometheus:
     image: prom/prometheus:v2.51.0
@@ -169,11 +162,7 @@ services:
         limits:
           cpus: '0.50'
           memory: 512M
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *default-logging
 
   grafana:
     image: grafana/grafana:10.4.1
@@ -195,11 +184,7 @@ services:
         limits:
           cpus: '0.50'
           memory: 512M
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *default-logging
 
   jellyfin:
     image: jellyfin/jellyfin:10.8.13
@@ -221,8 +206,4 @@ services:
         limits:
           cpus: '2.0'
           memory: 4G
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *default-logging
